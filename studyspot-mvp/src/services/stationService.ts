@@ -1,27 +1,77 @@
 // HeartRails Express APIによる駅名サジェスト
 export async function fetchStationSuggestions(query: string): Promise<Station[]> {
-  // ひらがな・漢字のみ許可
+  // 入力値の正規化
   const cleaned = query.trim().replace(/駅$/,'');
-  if (!cleaned || !/^[\u3040-\u30FF\u4E00-\u9FFF]+$/.test(cleaned)) return [];
-  try {
-    const url = `https://express.heartrails.com/api/json?method=getStations&name=${encodeURIComponent(cleaned)}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.response || !data.response.station) return [];
-    // 上限解除: すべて返す
-    return data.response.station.map((s: any) => ({
-      id: `${s.line}-${s.name}`,
-      name: s.name,
-      prefecture: s.prefecture,
-      line: s.line,
-      latitude: Number(s.y),
-      longitude: Number(s.x),
-      operator: s.line || ''
-    }));
-  } catch (e) {
-    console.error('HeartRails駅サジェストAPI失敗:', e);
-    return [];
+  if (!cleaned) return [];
+
+  // APIリクエスト（漢字・ひらがな・カタカナ・ローマ字）
+  const patterns = [
+    cleaned,
+    toHiragana(cleaned),
+    toKatakana(cleaned),
+    toRomaji(cleaned)
+  ];
+  let apiResults: Station[] = [];
+  for (const pat of patterns) {
+    if (!pat) continue;
+    try {
+      const url = `https://express.heartrails.com/api/json?method=getStations&name=${encodeURIComponent(pat)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.response && data.response.station) {
+        apiResults.push(...data.response.station.map((s: any) => ({
+          id: `${s.line}-${s.name}`,
+          name: s.name,
+          prefecture: s.prefecture,
+          line: s.line,
+          latitude: Number(s.y),
+          longitude: Number(s.x),
+          operator: s.line || ''
+        })));
+      }
+    } catch (e) {
+      // API失敗時は無視
+    }
   }
+  // 重複排除
+  const uniqueApiResults = Array.from(new Map(apiResults.map(s => [`${s.line}-${s.name}`, s])).values());
+
+  // ローカルキャッシュ併用（StationServiceインスタンスを直接参照）
+  let localResults: Station[] = [];
+  try {
+    const tempService = new StationService();
+    localResults = tempService.stationsCache.filter((station: Station) =>
+      station.name.includes(cleaned) ||
+      station.name.includes(toHiragana(cleaned)) ||
+      station.name.includes(toKatakana(cleaned))
+    );
+  } catch (e) {}
+
+  // API＋ローカル統合＆重複排除
+  const allResults = [...uniqueApiResults, ...localResults].filter((v, i, arr) =>
+    arr.findIndex(s => s.id === v.id) === i
+  );
+  return allResults;
+}
+
+// ひらがな変換（簡易）
+function toHiragana(text: string): string {
+  // カタカナ→ひらがな
+  return text.replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+}
+// カタカナ変換（簡易）
+function toKatakana(text: string): string {
+  // ひらがな→カタカナ
+  return text.replace(/[\u3041-\u3096]/g, ch => String.fromCharCode(ch.charCodeAt(0) + 0x60));
+}
+// ローマ字変換（簡易: 主要駅のみ対応）
+function toRomaji(text: string): string {
+  const map: { [key: string]: string } = {
+    'とうきょう': 'tokyo', 'しんじゅく': 'shinjuku', 'しぶや': 'shibuya', 'よこはま': 'yokohama',
+    'おおさか': 'osaka', 'きょうと': 'kyoto', 'なごや': 'nagoya', 'うえの': 'ueno', 'いけぶくろ': 'ikebukuro',
+    'せんだい': 'sendai', 'ひろしま': 'hiroshima', 'ふくおか': 'fukuoka', 'さっぽろ': 'sapporo'
+  };
+  return map[text] || '';
 }
 // 駅情報サービス（無料API使用）
 
@@ -45,7 +95,67 @@ export interface StationSearchResult {
 }
 
 export class StationService {
-  private stationsCache: Station[] = [];
+  // APIから都道府県ごとの駅一覧を取得しキャッシュ
+  async updateStationsCacheByPrefecture(prefecture: string): Promise<void> {
+    const stations = await this.fetchStationsByPrefecture(prefecture);
+    // 既存キャッシュと統合（重複排除）
+    const all = [...this.stationsCache, ...stations];
+    this.stationsCache = Array.from(new Map(all.map(s => [s.id, s])).values());
+  }
+
+  // APIから路線ごとの駅一覧を取得しキャッシュ
+  async updateStationsCacheByLine(line: string): Promise<void> {
+    const stations = await this.fetchStationsByLine(line);
+    // 既存キャッシュと統合（重複排除）
+    const all = [...this.stationsCache, ...stations];
+    this.stationsCache = Array.from(new Map(all.map(s => [s.id, s])).values());
+  }
+  // HeartRails Express APIから都道府県ごとの駅一覧を取得
+  async fetchStationsByPrefecture(prefecture: string): Promise<Station[]> {
+    try {
+      const url = `https://express.heartrails.com/api/json?method=getStations&prefecture=${encodeURIComponent(prefecture)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.response && data.response.station) {
+        return data.response.station.map((s: any) => ({
+          id: `${s.line}-${s.name}`,
+          name: s.name,
+          prefecture: s.prefecture,
+          line: s.line,
+          latitude: Number(s.y),
+          longitude: Number(s.x),
+          operator: s.line || ''
+        }));
+      }
+    } catch (e) {
+      console.error('API取得失敗:', e);
+    }
+    return [];
+  }
+
+  // HeartRails Express APIから路線ごとの駅一覧を取得
+  async fetchStationsByLine(line: string): Promise<Station[]> {
+    try {
+      const url = `https://express.heartrails.com/api/json?method=getStations&line=${encodeURIComponent(line)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.response && data.response.station) {
+        return data.response.station.map((s: any) => ({
+          id: `${s.line}-${s.name}`,
+          name: s.name,
+          prefecture: s.prefecture,
+          line: s.line,
+          latitude: Number(s.y),
+          longitude: Number(s.x),
+          operator: s.line || ''
+        }));
+      }
+    } catch (e) {
+      console.error('API取得失敗:', e);
+    }
+    return [];
+  }
+public stationsCache: Station[] = [];
   private isInitialized = false;
 
   constructor() {
@@ -296,6 +406,30 @@ export class StationService {
   // 徒歩時間から距離フィルターを取得
   getWalkingDistanceFilter(minutes: number): number {
     return minutes * 80; // 80m/分で計算
+  }
+
+  // 都道府県一覧取得
+  getPrefectureList(): string[] {
+    const prefectures = this.stationsCache.map(station => station.prefecture);
+    return Array.from(new Set(prefectures)).sort();
+  }
+
+  // 指定都道府県の路線一覧取得
+  getLineListByPrefecture(prefecture: string): string[] {
+    const lines = this.stationsCache
+      .filter(station => station.prefecture === prefecture)
+      .map(station => station.line);
+    return Array.from(new Set(lines)).sort();
+  }
+
+  // 指定路線の駅一覧取得
+  getStationsByLine(line: string): Station[] {
+    return this.stationsCache.filter(station => station.line === line);
+  }
+
+  // 指定都道府県・路線の駅一覧取得
+  getStationsByPrefectureAndLine(prefecture: string, line: string): Station[] {
+    return this.stationsCache.filter(station => station.prefecture === prefecture && station.line === line);
   }
 }
 
