@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CalilLibraryService, CalilLibrary, convertCalilToStudyLocation } from '../services/calilService';
+import { StationService, LibraryStationService, Station } from '../services/stationService';
 import { StudyLocation } from '../types';
 
 interface CalilLibraryExplorerProps {
@@ -15,13 +16,19 @@ const CalilLibraryExplorer: React.FC<CalilLibraryExplorerProps> = ({
   
   const [libraries, setLibraries] = useState<CalilLibrary[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchType, setSearchType] = useState<'nearby' | 'prefecture' | 'city'>('prefecture');
-  const [selectedPrefecture, setSelectedPrefecture] = useState<string>('東京都');
+  const [searchType, setSearchType] = useState<'nearby' | 'prefecture' | 'city' | 'station'>('prefecture');
+  const [selectedPrefecture, setSelectedPrefecture] = useState<string>('神奈川県');
   const [selectedCity, setSelectedCity] = useState<string>('');
+  const [selectedStations, setSelectedStations] = useState<Station[]>([]);
+  const [stationQuery, setStationQuery] = useState<string>('');
+  const [stationSuggestions, setStationSuggestions] = useState<Station[]>([]);
+  const [walkingMinutes, setWalkingMinutes] = useState<number>(5);
   const [limit, setLimit] = useState<number>(20);
   const [error, setError] = useState<string>('');
 
   const calilService = new CalilLibraryService();
+  const stationService = new StationService();
+  const libraryStationService = new LibraryStationService();
 
   // 日本の都道府県リスト
   const prefectures = [
@@ -98,6 +105,67 @@ const CalilLibraryExplorer: React.FC<CalilLibraryExplorerProps> = ({
     }
   };
 
+  const searchByStation = async () => {
+    if (selectedStations.length === 0) {
+      setError('駅を選択してください');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      // まず選択された駅の都道府県で図書館を取得
+      const prefecture = selectedStations[0]?.prefecture || '神奈川県';
+      
+      // 都道府県の全図書館を取得
+      const allLibraries = await calilService.searchByPrefecture(prefecture, 1000); // 大きめの値で全取得
+      
+      // 駅から徒歩圏内の図書館に絞り込み
+      const stationIds = selectedStations.map(station => station.id);
+      const nearbyLibraries = libraryStationService.findLibrariesNearStations(
+        stationIds, 
+        walkingMinutes, 
+        allLibraries
+      );
+      
+      setLibraries(nearbyLibraries);
+      
+      if (nearbyLibraries.length === 0) {
+        setError(`選択された駅から徒歩${walkingMinutes}分以内に図書館が見つかりませんでした`);
+      }
+    } catch (error) {
+      setError('駅周辺での検索に失敗しました');
+      console.error('Station search error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 駅名検索のサジェスト
+  const handleStationSearch = (query: string) => {
+    setStationQuery(query);
+    if (query.trim()) {
+      const suggestions = stationService.searchByName(query);
+      setStationSuggestions(suggestions.slice(0, 10)); // 最大10件表示
+    } else {
+      setStationSuggestions([]);
+    }
+  };
+
+  // 駅の追加
+  const addStation = (station: Station) => {
+    if (!selectedStations.some(s => s.id === station.id)) {
+      setSelectedStations([...selectedStations, station]);
+    }
+    setStationQuery('');
+    setStationSuggestions([]);
+  };
+
+  // 駅の削除
+  const removeStation = (stationId: string) => {
+    setSelectedStations(selectedStations.filter(station => station.id !== stationId));
+  };
+
   const handleSearch = async () => {
     switch (searchType) {
       case 'nearby':
@@ -108,6 +176,9 @@ const CalilLibraryExplorer: React.FC<CalilLibraryExplorerProps> = ({
         break;
       case 'city':
         await searchByCity();
+        break;
+      case 'station':
+        await searchByStation();
         break;
     }
   };
@@ -172,6 +243,15 @@ const CalilLibraryExplorer: React.FC<CalilLibraryExplorerProps> = ({
             />
             <span>🏙️ 市区町村で検索</span>
           </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              type="radio"
+              value="station"
+              checked={searchType === 'station'}
+              onChange={(e) => setSearchType(e.target.value as any)}
+            />
+            <span>🚉 駅周辺で検索</span>
+          </label>
         </div>
       </div>
 
@@ -226,6 +306,130 @@ const CalilLibraryExplorer: React.FC<CalilLibraryExplorerProps> = ({
                 }}
               />
             </div>
+          )}
+          
+          {searchType === 'station' && (
+            <>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}>
+                  駅を検索・追加
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    value={stationQuery}
+                    onChange={(e) => handleStationSearch(e.target.value)}
+                    placeholder="駅名を入力（例: 横浜、新宿、渋谷）"
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px'
+                    }}
+                  />
+                  {stationSuggestions.length > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      backgroundColor: 'white',
+                      border: '1px solid #ddd',
+                      borderTop: 'none',
+                      borderRadius: '0 0 4px 4px',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      zIndex: 1000
+                    }}>
+                      {stationSuggestions.map(station => (
+                        <div
+                          key={station.id}
+                          onClick={() => addStation(station)}
+                          style={{
+                            padding: '8px 12px',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid #eee',
+                            fontSize: '14px'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                        >
+                          <div style={{ fontWeight: '500' }}>{station.name}</div>
+                          <div style={{ fontSize: '12px', color: '#666' }}>
+                            {station.line} ({station.operator})
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {selectedStations.length > 0 && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
+                    選択された駅 ({selectedStations.length}件)
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {selectedStations.map(station => (
+                      <div
+                        key={station.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          backgroundColor: '#e3f2fd',
+                          padding: '4px 8px',
+                          borderRadius: '16px',
+                          fontSize: '14px',
+                          border: '1px solid #bbdefb'
+                        }}
+                      >
+                        <span>🚉 {station.name}</span>
+                        <button
+                          onClick={() => removeStation(station.id)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '2px',
+                            borderRadius: '50%',
+                            color: '#666'
+                          }}
+                          title="削除"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}>
+                  徒歩時間（分）
+                </label>
+                <select
+                  value={walkingMinutes}
+                  onChange={(e) => setWalkingMinutes(Number(e.target.value))}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '14px'
+                  }}
+                >
+                  <option value={3}>3分以内</option>
+                  <option value={5}>5分以内</option>
+                  <option value={7}>7分以内</option>
+                  <option value={10}>10分以内</option>
+                  <option value={15}>15分以内</option>
+                </select>
+              </div>
+            </>
           )}
           
           <div>
@@ -342,6 +546,41 @@ const CalilLibraryExplorer: React.FC<CalilLibraryExplorerProps> = ({
                   📞 {library.tel}
                 </p>
               )}
+              
+              {selectedStations.length > 0 && library.geocode && (() => {
+                // 選択された駅の中で最も近い駅を表示
+                let nearestStation = null;
+                let minDistance = Infinity;
+                
+                const [libLat, libLng] = library.geocode.split(',').map(coord => parseFloat(coord));
+                
+                for (const station of selectedStations) {
+                  const distance = stationService.calculateDistanceBetween(
+                    libLat,
+                    libLng,
+                    station.latitude,
+                    station.longitude
+                  );
+                  
+                  if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestStation = station;
+                  }
+                }
+                
+                const walkingMinutes = Math.round(minDistance / 80); // 80m/分で計算
+                
+                return nearestStation && (
+                  <div style={{ margin: '0 0 8px 0', padding: '8px', backgroundColor: '#f0f7ff', borderRadius: '6px' }}>
+                    <p style={{ margin: '0', color: '#1976d2', fontSize: '14px', fontWeight: 'bold' }}>
+                      🚶‍♂️ 最寄り駅: {nearestStation.name}
+                    </p>
+                    <p style={{ margin: '2px 0 0 0', color: '#1976d2', fontSize: '13px' }}>
+                      徒歩約 {walkingMinutes}分 ({Math.round(minDistance)}m)
+                    </p>
+                  </div>
+                );
+              })()}
               
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
                 <span style={{
