@@ -4,13 +4,13 @@ import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-  // 実際のプロジェクトでは環境変数を使用
-  apiKey: "demo-key",
-  authDomain: "studyspot-mvp.firebaseapp.com",
-  projectId: "studyspot-mvp", 
-  storageBucket: "studyspot-mvp.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdef123456789"
+  // 環境変数から設定を取得
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "demo-key",
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "studyspot-mvp.firebaseapp.com",
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "studyspot-mvp", 
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "studyspot-mvp.appspot.com",
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "123456789",
+  appId: process.env.REACT_APP_FIREBASE_APP_ID || "1:123456789:web:abcdef123456789"
 };
 
 // Firebase初期化

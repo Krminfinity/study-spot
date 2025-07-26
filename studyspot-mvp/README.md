@@ -22,7 +22,31 @@
 
 ## 🖥️ 起動方法
 
-### シンプル版（HTML）
+### 1. 環境変数の設定
+
+`.env.local`ファイルを作成し、以下の環境変数を設定してください：
+
+```bash
+# Calil API Key (図書館検索API)
+REACT_APP_CALIL_API_KEY=your_calil_api_key_here
+
+# Firebase設定 (開発環境用)
+REACT_APP_FIREBASE_API_KEY=your_firebase_api_key
+REACT_APP_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+REACT_APP_FIREBASE_PROJECT_ID=your_project_id
+```
+
+**注意**: `.env.local`ファイルはGitにコミットされません。本番環境では適切な環境変数管理システムを使用してください。
+
+### 2. React版（推奨）
+```bash
+cd studyspot-mvp
+npm install
+npm start
+```
+→ ブラウザで `http://localhost:3001` にアクセス
+
+### 3. シンプル版（HTML）
 ```bash
 cd studyspot-mvp
 python -m http.server 3000
@@ -120,6 +144,19 @@ studyspot-mvp/
 - 使いにくい操作はありますか？
 - 追加したい機能はありますか？
 - デザインの改善点はありますか？
+
+## 🔒 セキュリティについて
+
+### 環境変数の管理
+- APIキーや秘密鍵は`.env.local`ファイルで管理
+- `.env.local`はGitにコミットされません
+- 本番環境では適切な環境変数管理システムを使用
+
+### GitGuardian対応
+このプロジェクトはGitGuardianによる秘密鍵検出に対応しています：
+- ハードコードされたAPIキーを環境変数に移行済み
+- .gitignoreで機密情報ファイルを除外
+- セキュリティベストプラクティスに準拠
 
 ---
 

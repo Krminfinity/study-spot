@@ -21,8 +21,8 @@ export interface CalilLibrary {
 // カーリルAPIは直接配列を返すため、配列型として定義
 export type CalilResponse = CalilLibrary[];
 
-// カーリルAPIキー
-const CALIL_API_KEY = '61e5a886bcf815c7a044269ed80b6f64';
+// カーリルAPIキー（環境変数から取得）
+const CALIL_API_KEY = process.env.REACT_APP_CALIL_API_KEY || '';
 const CALIL_API_BASE = 'https://api.calil.jp';
 
 // 図書館検索クラス
@@ -31,6 +31,11 @@ export class CalilLibraryService {
 
   constructor() {
     this.apiKey = CALIL_API_KEY;
+    
+    // APIキーが設定されていない場合の警告
+    if (!this.apiKey) {
+      console.warn('REACT_APP_CALIL_API_KEY環境変数が設定されていません。図書館検索機能が利用できません。');
+    }
   }
 
     // 都道府県で図書館を検索
