@@ -1,12 +1,14 @@
 // HeartRails Express APIによる駅名サジェスト
 export async function fetchStationSuggestions(query: string): Promise<Station[]> {
+  // ひらがな・漢字のみ許可
   const cleaned = query.trim().replace(/駅$/,'');
-  if (!cleaned) return [];
+  if (!cleaned || !/^[\u3040-\u30FF\u4E00-\u9FFF]+$/.test(cleaned)) return [];
   try {
     const url = `https://express.heartrails.com/api/json?method=getStations&name=${encodeURIComponent(cleaned)}`;
     const res = await fetch(url);
     const data = await res.json();
     if (!data.response || !data.response.station) return [];
+    // 上限解除: すべて返す
     return data.response.station.map((s: any) => ({
       id: `${s.line}-${s.name}`,
       name: s.name,
@@ -14,7 +16,7 @@ export async function fetchStationSuggestions(query: string): Promise<Station[]>
       line: s.line,
       latitude: Number(s.y),
       longitude: Number(s.x),
-      operator: s.line || '' // operator情報がないためlineで代用
+      operator: s.line || ''
     }));
   } catch (e) {
     console.error('HeartRails駅サジェストAPI失敗:', e);
