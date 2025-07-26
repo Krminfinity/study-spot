@@ -1,3 +1,26 @@
+// HeartRails Express APIによる駅名サジェスト
+export async function fetchStationSuggestions(query: string): Promise<Station[]> {
+  if (!query.trim()) return [];
+  try {
+    const url = `https://express.heartrails.com/api/json?method=suggest&keyword=${encodeURIComponent(query)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.response || !data.response.station) return [];
+    // HeartRailsの駅データをStation型に変換
+    return data.response.station.map((s: any) => ({
+      id: `${s.line}-${s.name}`,
+      name: s.name,
+      prefecture: s.prefecture,
+      line: s.line,
+      latitude: Number(s.y),
+      longitude: Number(s.x),
+      operator: s.company || ''
+    }));
+  } catch (e) {
+    console.error('HeartRails駅サジェストAPI失敗:', e);
+    return [];
+  }
+}
 // 駅情報サービス（無料API使用）
 
 // 駅データの型定義
