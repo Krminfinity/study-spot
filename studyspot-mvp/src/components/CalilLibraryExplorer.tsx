@@ -44,6 +44,7 @@ const CalilLibraryExplorer: React.FC<CalilLibraryExplorerProps> = ({
   // 都道府県での検索を初期実行
   useEffect(() => {
     if (searchType === 'prefecture') {
+      setLibraries([]); // 前の結果をクリア
       searchByPrefecture();
     }
   }, [selectedPrefecture]);
@@ -56,6 +57,7 @@ const CalilLibraryExplorer: React.FC<CalilLibraryExplorerProps> = ({
 
     setLoading(true);
     setError('');
+    setLibraries([]); // 検索前に前の結果をクリア
     try {
       const result = await calilService.searchNearby(
         userLocation.latitude,
@@ -77,7 +79,7 @@ const CalilLibraryExplorer: React.FC<CalilLibraryExplorerProps> = ({
     setError('');
     try {
       const result = await calilService.searchByPrefecture(selectedPrefecture, limit);
-      setLibraries(result);
+      setLibraries(result); // 前の結果をクリアして新しい結果のみ表示
     } catch (error) {
       setError('都道府県での検索に失敗しました');
       console.error('Prefecture search error:', error);
@@ -94,6 +96,7 @@ const CalilLibraryExplorer: React.FC<CalilLibraryExplorerProps> = ({
 
     setLoading(true);
     setError('');
+    setLibraries([]); // 検索前に前の結果をクリア
     try {
       const result = await calilService.searchByCity(selectedPrefecture, selectedCity, limit);
       setLibraries(result);
@@ -113,6 +116,7 @@ const CalilLibraryExplorer: React.FC<CalilLibraryExplorerProps> = ({
 
     setLoading(true);
     setError('');
+    setLibraries([]); // 検索前に前の結果をクリア
     try {
       // まず選択された駅の都道府県で図書館を取得
       const prefecture = selectedStations[0]?.prefecture || '神奈川県';
