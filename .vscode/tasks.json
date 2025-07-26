@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "StudySpot MVP開発サーバー起動",
+			"type": "shell",
+			"command": "cd studyspot-mvp && python -m http.server 3000",
+			"group": "build",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

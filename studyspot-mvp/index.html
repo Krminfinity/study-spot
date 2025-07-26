@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudySpot MVP - 学習場所検索</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .header h1 {
+            color: #007AFF;
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .filters {
+            background-color: #fff;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .filters h3 {
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        
+        .filter-item label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .filter-item select {
+            width: 100%;
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        .checkbox-label {
+            display: flex !important;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .results-header {
+            margin-bottom: 16px;
+        }
+        
+        .results-header h2 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+        
+        .results-info {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .location-card {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 8px 0;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: box-shadow 0.2s;
+        }
+        
+        .location-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .location-card h3 {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .location-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .category-tag {
+            background-color: #007AFF;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .distance {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .status {
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status.open { color: #00C851; }
+        .status.closed { color: #FF3547; }
+        
+        .address {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .hours {
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .pricing {
+            font-size: 14px;
+            font-weight: 500;
+            color: #007AFF;
+            margin-bottom: 12px;
+        }
+        
+        .rating {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .stars {
+            color: #FFD700;
+        }
+        
+        .rating-text {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .facilities {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .facility-tag {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .facility-wifi { background-color: #E3F2FD; color: #1976D2; }
+        .facility-power { background-color: #E8F5E8; color: #2E7D32; }
+        .facility-quiet { background-color: #F3E5F5; color: #7B1FA2; }
+        .facility-food { background-color: #FFF3E0; color: #F57C00; }
+        
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background-color: #fff;
+            margin: 50px auto;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .close-btn {
+            background-color: #007AFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        
+        .close-btn:hover {
+            background-color: #0056b3;
+        }
+        
+        .detail-section {
+            margin-bottom: 20px;
+        }
+        
+        .detail-section h3 {
+            margin-bottom: 8px;
+        }
+        
+        .hours-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+        }
+        
+        .hours-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+        
+        .facilities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 8px;
+        }
+        
+        .facility-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .tag {
+            background-color: #E3F2FD;
+            color: #1976D2;
+            padding: 4px 8px;
+            border-radius: 16px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ヘッダー -->
+        <header class="header">
+            <h1>📚 StudySpot</h1>
+            <p>あなたに最適な学習場所を見つけよう</p>
+        </header>
+
+        <!-- フィルター -->
+        <div class="filters">
+            <h3>フィルター</h3>
+            <div class="filter-grid">
+                <div class="filter-item">
+                    <label>距離</label>
+                    <select id="distanceFilter">
+                        <option value="500">500m以内</option>
+                        <option value="1000">1km以内</option>
+                        <option value="2000">2km以内</option>
+                        <option value="5000" selected>5km以内</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label>カテゴリ</label>
+                    <select id="categoryFilter">
+                        <option value="all">すべて</option>
+                        <option value="library">図書館</option>
+                        <option value="cafe">カフェ</option>
+                        <option value="study_room">自習室</option>
+                        <option value="coworking">コワーキングスペース</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="freeOnlyFilter">
+                        無料のみ
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- 検索結果 -->
+        <div class="results-header">
+            <h2 id="resultsCount">検索結果 (4件)</h2>
+            <p class="results-info" id="locationInfo">現在地から近い順に表示しています</p>
+        </div>
+
+        <!-- 場所一覧 -->
+        <div id="locationsList">
+            <!-- 動的に生成される -->
+        </div>
+    </div>
+
+    <!-- 詳細モーダル -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content" id="modalContent">
+            <!-- 動的に生成される -->
+        </div>
+    </div>
+
+    <script>
+        // サンプルデータ
+        const sampleLocations = [
+            {
+                id: '1',
+                name: '新宿区立中央図書館',
+                category: 'library',
+                address: '東京都新宿区大久保3-1-1',
+                coordinates: { latitude: 35.7008, longitude: 139.7003 },
+                basicInfo: {
+                    openingHours: {
+                        monday: '09:00-20:00',
+                        tuesday: '09:00-20:00',
+                        wednesday: '09:00-20:00',
+                        thursday: '09:00-20:00',
+                        friday: '09:00-20:00',
+                        saturday: '09:00-17:00',
+                        sunday: '09:00-17:00'
+                    },
+                    pricing: { type: 'free' },
+                    contact: {
+                        phone: '03-3208-2111',
+                        website: 'https://www.library.shinjuku.tokyo.jp/'
+                    }
+                },
+                facilities: { wifi: true, power: true, food: false, quiet: true },
+                stats: {
+                    averageRating: 4.2,
+                    reviewCount: 15,
+                    tags: { '静か': 12, 'Wi-Fi良好': 10, '電源あり': 14, '長時間OK': 8 }
+                }
+            },
+            {
+                id: '2',
+                name: 'ドトールコーヒー 新宿東口店',
+                category: 'cafe',
+                address: '東京都新宿区新宿3-24-3',
+                coordinates: { latitude: 35.6895, longitude: 139.7006 },
+                basicInfo: {
+                    openingHours: {
+                        monday: '07:00-22:00',
+                        tuesday: '07:00-22:00',
+                        wednesday: '07:00-22:00',
+                        thursday: '07:00-22:00',
+                        friday: '07:00-22:00',
+                        saturday: '07:00-22:00',
+                        sunday: '07:00-21:00'
+                    },
+                    pricing: { type: 'hourly', hourlyRate: 300 },
+                    contact: { phone: '03-3123-4567' }
+                },
+                facilities: { wifi: true, power: false, food: true, quiet: false },
+                stats: {
+                    averageRating: 3.8,
+                    reviewCount: 23,
+                    tags: { 'Wi-Fi良好': 18, 'アクセス良好': 20, '安い': 15, '電源あり': 5 }
+                }
+            },
+            {
+                id: '3',
+                name: 'スタディルームLEAF 新宿店',
+                category: 'study_room',
+                address: '東京都新宿区西新宿1-1-8',
+                coordinates: { latitude: 35.6896, longitude: 139.6917 },
+                basicInfo: {
+                    openingHours: {
+                        monday: '08:00-23:00',
+                        tuesday: '08:00-23:00',
+                        wednesday: '08:00-23:00',
+                        thursday: '08:00-23:00',
+                        friday: '08:00-23:00',
+                        saturday: '08:00-23:00',
+                        sunday: '08:00-22:00'
+                    },
+                    pricing: { type: 'hourly', hourlyRate: 500, dailyRate: 1500 },
+                    contact: {
+                        phone: '03-5321-1234',
+                        website: 'https://studyroom-leaf.com/'
+                    }
+                },
+                facilities: { wifi: true, power: true, food: false, quiet: true },
+                stats: {
+                    averageRating: 4.5,
+                    reviewCount: 8,
+                    tags: { '静か': 8, 'Wi-Fi良好': 7, '電源あり': 8, '長時間OK': 6 }
+                }
+            },
+            {
+                id: '4',
+                name: '渋谷区立中央図書館',
+                category: 'library',
+                address: '東京都渋谷区宇田川町25-1',
+                coordinates: { latitude: 35.6598, longitude: 139.6982 },
+                basicInfo: {
+                    openingHours: {
+                        monday: '休館',
+                        tuesday: '10:00-21:00',
+                        wednesday: '10:00-21:00',
+                        thursday: '10:00-21:00',
+                        friday: '10:00-21:00',
+                        saturday: '10:00-19:00',
+                        sunday: '10:00-17:00'
+                    },
+                    pricing: { type: 'free' },
+                    contact: { phone: '03-3463-1211' }
+                },
+                facilities: { wifi: true, power: true, food: false, quiet: true },
+                stats: {
+                    averageRating: 4.0,
+                    reviewCount: 12,
+                    tags: { '静か': 10, 'Wi-Fi良好': 8, '電源あり': 11, 'アクセス良好': 9 }
+                }
+            }
+        ];
+
+        // 現在位置（新宿駅をデフォルト）
+        let userLocation = { latitude: 35.6896, longitude: 139.7006 };
+        let filteredLocations = [...sampleLocations];
+
+        // ユーティリティ関数
+        function calculateDistance(coord1, coord2) {
+            const R = 6371;
+            const dLat = toRad(coord2.latitude - coord1.latitude);
+            const dLon = toRad(coord2.longitude - coord1.longitude);
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(toRad(coord1.latitude)) * Math.cos(toRad(coord2.latitude)) * 
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return Math.round(R * c * 10) / 10;
+        }
+
+        function toRad(value) {
+            return value * Math.PI / 180;
+        }
+
+        function getCategoryLabel(category) {
+            const labels = {
+                library: '図書館',
+                cafe: 'カフェ',
+                study_room: '自習室',
+                coworking: 'コワーキングスペース',
+                public: '公共施設'
+            };
+            return labels[category] || category;
+        }
+
+        function formatPricing(pricing) {
+            if (pricing.type === 'free') return '無料';
+            if (pricing.type === 'hourly') return `時間制 ${pricing.hourlyRate}円/時間`;
+            if (pricing.type === 'daily') return `1日 ${pricing.dailyRate}円`;
+            return '料金要確認';
+        }
+
+        function isCurrentlyOpen(openingHours) {
+            const now = new Date();
+            const today = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+            const currentTime = now.getHours() * 100 + now.getMinutes();
+            
+            const todayHours = openingHours[today];
+            if (!todayHours || todayHours === '休館') return false;
+            
+            const [open, close] = todayHours.split('-');
+            if (!open || !close) return false;
+            
+            const openTime = parseInt(open.replace(':', ''));
+            const closeTime = parseInt(close.replace(':', ''));
+            
+            return currentTime >= openTime && currentTime <= closeTime;
+        }
+
+        function getTodayHours(openingHours) {
+            const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+            const dayLabels = {
+                monday: '月', tuesday: '火', wednesday: '水', thursday: '木',
+                friday: '金', saturday: '土', sunday: '日'
+            };
+            
+            const todayHours = openingHours[today];
+            if (todayHours === '休館') return '本日休業';
+            return `本日（${dayLabels[today]}）${todayHours}`;
+        }
+
+        // フィルター適用
+        function applyFilters() {
+            const distanceFilter = parseInt(document.getElementById('distanceFilter').value);
+            const categoryFilter = document.getElementById('categoryFilter').value;
+            const freeOnlyFilter = document.getElementById('freeOnlyFilter').checked;
+
+            filteredLocations = sampleLocations.filter(location => {
+                // 距離フィルター
+                const distance = calculateDistance(userLocation, location.coordinates);
+                if (distance > distanceFilter / 1000) return false;
+
+                // カテゴリフィルター
+                if (categoryFilter !== 'all' && location.category !== categoryFilter) return false;
+
+                // 無料フィルター
+                if (freeOnlyFilter && location.basicInfo.pricing.type !== 'free') return false;
+
+                return true;
+            });
+
+            // 距離順でソート
+            filteredLocations.sort((a, b) => {
+                const distanceA = calculateDistance(userLocation, a.coordinates);
+                const distanceB = calculateDistance(userLocation, b.coordinates);
+                return distanceA - distanceB;
+            });
+
+            renderLocationsList();
+        }
+
+        // 場所一覧の描画
+        function renderLocationsList() {
+            const container = document.getElementById('locationsList');
+            const resultsCount = document.getElementById('resultsCount');
+            
+            resultsCount.textContent = `検索結果 (${filteredLocations.length}件)`;
+
+            if (filteredLocations.length === 0) {
+                container.innerHTML = `
+                    <div class="no-results">
+                        <h3>該当する場所が見つかりませんでした</h3>
+                        <p>フィルター条件を変更してみてください</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filteredLocations.map(location => {
+                const distance = calculateDistance(userLocation, location.coordinates);
+                const isOpen = isCurrentlyOpen(location.basicInfo.openingHours);
+                const todayHours = getTodayHours(location.basicInfo.openingHours);
+                const pricing = formatPricing(location.basicInfo.pricing);
+                
+                return `
+                    <div class="location-card" onclick="showLocationDetail('${location.id}')">
+                        <h3>${location.name}</h3>
+                        <div class="location-meta">
+                            <span class="category-tag">${getCategoryLabel(location.category)}</span>
+                            <span class="distance">${distance}km</span>
+                            <span class="status ${isOpen ? 'open' : 'closed'}">${isOpen ? '営業中' : '休業中'}</span>
+                        </div>
+                        <p class="address">📍 ${location.address}</p>
+                        <div class="hours">${todayHours}</div>
+                        <div class="pricing">${pricing}</div>
+                        <div class="rating">
+                            <span class="stars">${'★'.repeat(Math.round(location.stats.averageRating))}${'☆'.repeat(5 - Math.round(location.stats.averageRating))}</span>
+                            <span class="rating-text">${location.stats.averageRating} (${location.stats.reviewCount}件のレビュー)</span>
+                        </div>
+                        <div class="facilities">
+                            ${location.facilities.wifi ? '<span class="facility-tag facility-wifi">Wi-Fi</span>' : ''}
+                            ${location.facilities.power ? '<span class="facility-tag facility-power">電源</span>' : ''}
+                            ${location.facilities.quiet ? '<span class="facility-tag facility-quiet">静か</span>' : ''}
+                            ${location.facilities.food ? '<span class="facility-tag facility-food">飲食OK</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 詳細表示
+        function showLocationDetail(locationId) {
+            const location = sampleLocations.find(l => l.id === locationId);
+            if (!location) return;
+
+            const modal = document.getElementById('detailModal');
+            const content = document.getElementById('modalContent');
+            
+            const dayLabels = {
+                monday: '月曜日', tuesday: '火曜日', wednesday: '水曜日', thursday: '木曜日',
+                friday: '金曜日', saturday: '土曜日', sunday: '日曜日'
+            };
+
+            content.innerHTML = `
+                <button class="close-btn" onclick="closeModal()">← 検索結果に戻る</button>
+                
+                <h1>${location.name}</h1>
+                <div style="margin-bottom: 16px;">
+                    <span class="category-tag">${getCategoryLabel(location.category)}</span>
+                </div>
+                <p style="margin-bottom: 16px; color: #666;">📍 ${location.address}</p>
+
+                <div class="detail-section">
+                    <h3>営業時間</h3>
+                    <div class="hours-grid">
+                        ${Object.entries(location.basicInfo.openingHours).map(([day, hours]) => 
+                            `<div class="hours-item">
+                                <span>${dayLabels[day]}:</span>
+                                <span>${hours}</span>
+                            </div>`
+                        ).join('')}
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>料金</h3>
+                    <p style="font-size: 18px; font-weight: bold; color: #007AFF;">
+                        ${formatPricing(location.basicInfo.pricing)}
+                    </p>
+                </div>
+
+                <div class="detail-section">
+                    <h3>設備・環境</h3>
+                    <div class="facilities-grid">
+                        <div class="facility-item">
+                            <span>${location.facilities.wifi ? '✅' : '❌'}</span>
+                            <span>Wi-Fi</span>
+                        </div>
+                        <div class="facility-item">
+                            <span>${location.facilities.power ? '✅' : '❌'}</span>
+                            <span>電源</span>
+                        </div>
+                        <div class="facility-item">
+                            <span>${location.facilities.quiet ? '✅' : '❌'}</span>
+                            <span>静かな環境</span>
+                        </div>
+                        <div class="facility-item">
+                            <span>${location.facilities.food ? '✅' : '❌'}</span>
+                            <span>飲食可能</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>評価・レビュー</h3>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                        <div style="font-size: 24px; color: #FFD700;">
+                            ${'★'.repeat(Math.round(location.stats.averageRating))}${'☆'.repeat(5 - Math.round(location.stats.averageRating))}
+                        </div>
+                        <span style="font-size: 18px; font-weight: bold;">${location.stats.averageRating}</span>
+                        <span style="color: #666;">(${location.stats.reviewCount}件のレビュー)</span>
+                    </div>
+                    <div class="tags">
+                        ${Object.entries(location.stats.tags).map(([tag, count]) => 
+                            `<span class="tag">#${tag} (${count})</span>`
+                        ).join('')}
+                    </div>
+                </div>
+
+                ${location.basicInfo.contact ? `
+                    <div class="detail-section">
+                        <h3>お問い合わせ</h3>
+                        ${location.basicInfo.contact.phone ? `<p>📞 ${location.basicInfo.contact.phone}</p>` : ''}
+                        ${location.basicInfo.contact.website ? `<p>🌐 <a href="${location.basicInfo.contact.website}" target="_blank">ウェブサイト</a></p>` : ''}
+                    </div>
+                ` : ''}
+            `;
+
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').style.display = 'none';
+        }
+
+        // 位置情報取得
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        };
+                        applyFilters();
+                        document.getElementById('locationInfo').textContent = '現在地から近い順に表示しています';
+                    },
+                    (error) => {
+                        console.log('位置情報の取得に失敗しました:', error);
+                        document.getElementById('locationInfo').textContent = '新宿駅からの距離で表示しています（位置情報の取得に失敗しました）';
+                        applyFilters();
+                    }
+                );
+            }
+        }
+
+        // イベントリスナー
+        document.getElementById('distanceFilter').addEventListener('change', applyFilters);
+        document.getElementById('categoryFilter').addEventListener('change', applyFilters);
+        document.getElementById('freeOnlyFilter').addEventListener('change', applyFilters);
+
+        // モーダルの外側クリックで閉じる
+        document.getElementById('detailModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // 初期化
+        getCurrentLocation();
+    </script>
+</body>
+</html>
