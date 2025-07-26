@@ -18,11 +18,8 @@ export interface CalilLibrary {
   distance?: number;
 }
 
-export interface CalilResponse {
-  Libraries?: {
-    Library: CalilLibrary[] | CalilLibrary;
-  };
-}
+// カーリルAPIは直接配列を返すため、配列型として定義
+export type CalilResponse = CalilLibrary[];
 
 // カーリルAPIキー
 const CALIL_API_KEY = '61e5a886bcf815c7a044269ed80b6f64';
@@ -36,41 +33,39 @@ export class CalilLibraryService {
     this.apiKey = CALIL_API_KEY;
   }
 
-  // 都道府県で図書館を検索
+    // 都道府県で図書館を検索
   async searchByPrefecture(prefecture: string, limit?: number): Promise<CalilLibrary[]> {
-    console.log('searchByPrefecture called with:', { prefecture, limit });
     try {
       const url = new URL(`${CALIL_API_BASE}/library`);
-      url.searchParams.append('appkey', this.apiKey);
+      url.searchParams.append('key', this.apiKey);
       url.searchParams.append('pref', prefecture);
       url.searchParams.append('format', 'json');
-      url.searchParams.append('callback', '');
+      url.searchParams.append('callback', 'no');
       if (limit) {
         url.searchParams.append('limit', limit.toString());
       }
 
-      console.log('API URL:', url.toString());
+      console.log('Requesting URL:', url.toString());
       
       const response = await fetch(url.toString());
-      console.log('API Response status:', response.status);
-      
       if (!response.ok) {
         throw new Error(`カーリルAPI エラー: ${response.status}`);
       }
 
       const data = await response.text();
-      console.log('Raw API response length:', data.length);
-      console.log('Raw API response preview:', data.substring(0, 500));
+      console.log('Raw response preview:', data.substring(0, 500));
       
-      // JSONPのcallback()を除去
-      const jsonData = data.replace(/^callback\(/, '').replace(/\);?$/, '');
+      // JSONPのコールバックが含まれている場合は除去、そうでなければそのまま使用
+      const jsonData = data.startsWith('callback(') || data.startsWith('no(') 
+        ? data.replace(/^[a-zA-Z_]+\(/, '').replace(/\);?$/, '')
+        : data;
       console.log('Cleaned JSON preview:', jsonData.substring(0, 500));
       
       const parsed: CalilResponse = JSON.parse(jsonData);
       console.log('Parsed response structure:', {
-        hasLibraries: !!parsed.Libraries,
-        libraryCount: parsed.Libraries?.Library ? (Array.isArray(parsed.Libraries.Library) ? parsed.Libraries.Library.length : 1) : 0,
-        firstLibrary: parsed.Libraries?.Library ? (Array.isArray(parsed.Libraries.Library) ? parsed.Libraries.Library[0] : parsed.Libraries.Library) : null
+        isArray: Array.isArray(parsed),
+        libraryCount: Array.isArray(parsed) ? parsed.length : 0,
+        firstLibrary: Array.isArray(parsed) && parsed.length > 0 ? parsed[0] : null
       });
 
       return this.normalizeLibraryData(parsed);
@@ -84,11 +79,11 @@ export class CalilLibraryService {
   async searchByCity(prefecture: string, city: string, limit?: number): Promise<CalilLibrary[]> {
     try {
       const url = new URL(`${CALIL_API_BASE}/library`);
-      url.searchParams.append('appkey', this.apiKey);
+      url.searchParams.append('key', this.apiKey);
       url.searchParams.append('pref', prefecture);
       url.searchParams.append('city', city);
       url.searchParams.append('format', 'json');
-      url.searchParams.append('callback', '');
+      url.searchParams.append('callback', 'no');
       if (limit) {
         url.searchParams.append('limit', limit.toString());
       }
@@ -99,12 +94,14 @@ export class CalilLibraryService {
       }
 
       const data = await response.text();
-      const jsonData = data.replace(/^callback\(/, '').replace(/\);?$/, '');
+      const jsonData = data.startsWith('no(')
+        ? data.replace(/^no\(/, '').replace(/\);?$/, '')
+        : data;
       const parsed: CalilResponse = JSON.parse(jsonData);
 
       return this.normalizeLibraryData(parsed);
     } catch (error) {
-      console.error('図書館検索エラー:', error);
+      console.error('市区町村検索エラー:', error);
       return [];
     }
   }
@@ -128,10 +125,10 @@ export class CalilLibraryService {
   ): Promise<CalilLibrary[]> {
     try {
       const url = new URL(`${CALIL_API_BASE}/library`);
-      url.searchParams.append('appkey', this.apiKey);
+      url.searchParams.append('key', this.apiKey);
       url.searchParams.append('geocode', `${longitude},${latitude}`);
       url.searchParams.append('format', 'json');
-      url.searchParams.append('callback', '');
+      url.searchParams.append('callback', 'no');
       url.searchParams.append('limit', limit.toString());
 
       const response = await fetch(url.toString());
@@ -140,7 +137,9 @@ export class CalilLibraryService {
       }
 
       const data = await response.text();
-      const jsonData = data.replace(/^callback\(/, '').replace(/\);?$/, '');
+      const jsonData = data.startsWith('no(')
+        ? data.replace(/^no\(/, '').replace(/\);?$/, '')
+        : data;
       const parsed: CalilResponse = JSON.parse(jsonData);
 
       return this.normalizeLibraryData(parsed);
@@ -154,10 +153,10 @@ export class CalilLibraryService {
   async searchBySystemId(systemId: string): Promise<CalilLibrary[]> {
     try {
       const url = new URL(`${CALIL_API_BASE}/library`);
-      url.searchParams.append('appkey', this.apiKey);
+      url.searchParams.append('key', this.apiKey);
       url.searchParams.append('systemid', systemId);
       url.searchParams.append('format', 'json');
-      url.searchParams.append('callback', '');
+      url.searchParams.append('callback', 'no');
 
       const response = await fetch(url.toString());
       if (!response.ok) {
@@ -165,7 +164,9 @@ export class CalilLibraryService {
       }
 
       const data = await response.text();
-      const jsonData = data.replace(/^callback\(/, '').replace(/\);?$/, '');
+      const jsonData = data.startsWith('no(')
+        ? data.replace(/^no\(/, '').replace(/\);?$/, '')
+        : data;
       const parsed: CalilResponse = JSON.parse(jsonData);
 
       return this.normalizeLibraryData(parsed);
@@ -179,19 +180,15 @@ export class CalilLibraryService {
   private normalizeLibraryData(response: CalilResponse): CalilLibrary[] {
     console.log('normalizeLibraryData called with response:', response);
     
-    if (!response.Libraries?.Library) {
-      console.log('No Libraries.Library found in response');
+    if (!Array.isArray(response) || response.length === 0) {
+      console.log('Response is not an array or is empty');
       return [];
     }
 
-    const libraries = Array.isArray(response.Libraries.Library) 
-      ? response.Libraries.Library 
-      : [response.Libraries.Library];
+    console.log('Found libraries:', response.length);
+    console.log('First library sample:', response[0]);
 
-    console.log('Found libraries:', libraries.length);
-    console.log('First library sample:', libraries[0]);
-
-    return libraries.map(lib => ({
+    return response.map(lib => ({
       systemid: lib.systemid,
       systemname: lib.systemname,
       libkey: lib.libkey,
